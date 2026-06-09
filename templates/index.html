@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🏝️ 剧本配表工具集</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <div id="settings-overlay" class="settings-overlay hidden">
+          <div class="settings-modal">
+            <div class="settings-header">
+              <h2>设置</h2>
+              <button id="settings-close" type="button" class="settings-close-btn" aria-label="关闭">✕</button>
+            </div>
+            <div class="settings-body">
+              <fieldset class="settings-group">
+                <legend>字数预警高亮</legend>
+                <label class="settings-option">
+                  <span>字数阈值</span>
+                  <input id="warn-length-threshold" type="number" min="1" max="9999" value="40" class="settings-number-input" />
+                  <span class="settings-unit">字</span>
+                </label>
+              </fieldset>
+
+              <fieldset class="settings-group settings-group-ai">
+                <legend>AI 接入配置</legend>
+
+                <div class="settings-field">
+                  <div class="settings-field-header">
+                    <span class="settings-field-label">API Key</span>
+                    <button id="ai-key-toggle" type="button" class="settings-icon-btn" aria-label="显示/隐藏密钥">👁</button>
+                  </div>
+                  <input id="ai-api-key" type="password" class="settings-text-input" placeholder="sk-..." autocomplete="off" />
+                </div>
+
+                <div class="settings-field">
+                  <div class="settings-field-header">
+                    <span class="settings-field-label">API 请求地址</span>
+                    <button id="ai-speed-test" type="button" class="settings-link-btn">⚡ 管理与测速</button>
+                  </div>
+                  <input id="ai-api-url" type="url" class="settings-text-input" placeholder="https://api.deepseek.com" />
+                </div>
+
+                <div class="settings-field">
+                  <div class="settings-field-header">
+                    <span class="settings-field-label">模型名称</span>
+                    <button id="ai-fetch-models" type="button" class="settings-link-btn">↓ 获取模型列表</button>
+                  </div>
+                  <div class="settings-model-row">
+                    <input id="ai-model-name" type="text" class="settings-text-input" placeholder="deepseek-v4-pro" />
+                    <select id="ai-model-select" class="settings-select hidden">
+                      <option value="">-- 选择模型 --</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="settings-field settings-actions-row">
+                  <button id="ai-test-connection" type="button" class="settings-action-btn">🔗 联通测试</button>
+                  <span id="ai-test-result" class="settings-test-result"></span>
+                </div>
+              </fieldset>
+
+              <fieldset class="settings-group settings-group-prompt">
+                <legend>错字检测提示词</legend>
+                <div class="settings-field">
+                  <div class="settings-field-header">
+                    <label class="settings-option-inline">
+                      <input id="prompt-unlock" type="checkbox" />
+                      <span>解锁修改</span>
+                    </label>
+                    <button id="prompt-save" type="button" class="settings-link-btn" disabled>保存修改</button>
+                  </div>
+                  <textarea id="prompt-editor" class="settings-textarea" rows="10" readonly></textarea>
+                </div>
+              </fieldset>
+
+              <fieldset class="settings-group settings-group-prompt">
+                <legend>音效生成提示词</legend>
+                <div class="settings-field">
+                  <div class="settings-field-header">
+                    <label class="settings-option-inline">
+                      <input id="sfx-prompt-unlock" type="checkbox" />
+                      <span>解锁修改</span>
+                    </label>
+                    <button id="sfx-prompt-save" type="button" class="settings-link-btn" disabled>保存修改</button>
+                  </div>
+                  <textarea id="sfx-prompt-editor" class="settings-textarea" rows="10" readonly></textarea>
+                </div>
+              </fieldset>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Tab Navigation ===== -->
+        <nav class="tab-bar">
+          <button id="tab-script" type="button" class="tab-item active" data-tab="script">📜 Word剧本转配表</button>
+          <button id="tab-sfx-match" type="button" class="tab-item" data-tab="sfx-match">🎵 音效ID匹配</button>
+          <button id="tab-toolbox" type="button" class="tab-item" data-tab="toolbox">🧰 小工具箱</button>
+        </nav>
+
+        <!-- ===== Tab 1: Word Script Tool ===== -->
+        <form id="convert-form" class="workspace tab-content" data-tab="script">
+          <section id="import-panel" class="control-card">
+            <header class="hero">
+              <div class="hero-copy">
+                <p class="eyebrow">🏝️ Script Table Builder</p>
+                <h1>Word剧本转Excel配表工具</h1>
+                <p class="intro">导入 docx 剧本后自动预览，可直接微调后导出 Excel。解析优先按 <code>【角色】台词</code> 进行，未识别角色的内容自动归到旁白。</p>
+              </div>
+            </header>
+
+            <div class="section-head">
+              <div>
+                <p class="section-tag">Step 1</p>
+                <h2>导入</h2>
+              </div>
+              <p class="section-hint">选择文件后会自动解析并进入预览。</p>
+            </div>
+
+            <label class="file-picker" for="file-input">
+              <span class="file-label">选择 Word 文件</span>
+              <input id="file-input" name="file" type="file" accept=".docx" required />
+            </label>
+            <p id="file-name" class="hint">尚未选择文件</p>
+
+            <p id="message" class="message" role="status" aria-live="polite"></p>
+          </section>
+
+          <section id="preview-panel" class="preview-panel hidden" aria-live="polite">
+            <div class="panel-topbar">
+              <div class="topbar-left">
+                <button id="back-button" type="button" class="back-btn">← 返回</button>
+                <div class="topbar-title">
+                  <h2>预览与微调</h2>
+                  <p id="preview-summary" class="topbar-summary"></p>
+                </div>
+              </div>
+              <div class="topbar-right">
+                <div class="tool-group">
+                  <input id="warn-length-enabled" type="checkbox" />
+                  <button id="warn-action-button" type="button" class="warn-action-btn" disabled>字数预警</button>
+                  <p id="warn-status" class="tool-status hidden"></p>
+                </div>
+                <div class="tool-group">
+                  <input id="typo-check-enabled" type="checkbox" />
+                  <button id="typo-action-button" type="button" class="typo-action-btn" disabled>错字检测</button>
+                  <p id="typo-status" class="tool-status hidden"></p>
+                </div>
+                <div class="tool-group">
+                  <input id="sfx-enabled" type="checkbox" />
+                  <button id="sfx-action-button" type="button" class="sfx-action-btn" disabled>音效文本</button>
+                  <button id="sfx-clear-button" type="button" class="sfx-clear-btn hidden">清空</button>
+                  <p id="sfx-status" class="tool-status hidden"></p>
+                </div>
+                <span class="topbar-divider"></span>
+                <button id="submit-button" type="submit" disabled>下载 Excel</button>
+                <button id="settings-toggle" type="button" class="settings-btn" aria-label="设置">⚙</button>
+              </div>
+            </div>
+
+            <div class="preview-table-shell">
+              <table class="preview-table">
+                <thead id="preview-head"></thead>
+                <tbody id="preview-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </form>
+
+        <!-- ===== Tab 2: SFX ID Matching Tool ===== -->
+        <div id="sfx-match-app" class="workspace tab-content hidden" data-tab="sfx-match">
+          <!-- Step 1: Dictionary Management -->
+          <section id="sfx-dict-panel" class="control-card">
+            <header class="hero">
+              <div class="hero-copy">
+                <p class="eyebrow">🎵 SFX ID Matcher</p>
+                <h1>音效ID匹配工具</h1>
+                <p class="intro">维护音效名称与ID的映射字典，导入Excel后自动匹配音效ID。</p>
+              </div>
+            </header>
+
+            <div class="section-head">
+              <div>
+                <p class="section-tag">Step 1</p>
+                <h2>音效字典</h2>
+              </div>
+              <p class="section-hint">输入音效名称和对应ID，也可以从Excel粘贴批量导入。</p>
+            </div>
+
+            <div class="sfx-dict-toolbar">
+              <input id="sfx-dict-search" type="text" class="sfx-dict-search-input" placeholder="🔍 搜索字典..." />
+              <span id="sfx-dict-count" class="sfx-dict-count">共 0 条</span>
+            </div>
+
+            <div class="sfx-dict-table-shell">
+              <table class="sfx-dict-table">
+                <thead>
+                  <tr>
+                    <th class="sfx-dict-col-id">音效ID</th>
+                    <th class="sfx-dict-col-name">文件名称</th>
+                    <th class="sfx-dict-col-action">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="sfx-dict-body"></tbody>
+              </table>
+            </div>
+
+            <div class="sfx-dict-actions">
+              <button id="sfx-dict-add-row" type="button" class="sfx-dict-add-btn">+ 新增行</button>
+              <div class="sfx-dict-actions-right">
+                <button id="sfx-dict-clear" type="button" class="sfx-dict-clear-btn">清空字典</button>
+                <button id="sfx-dict-save" type="button" class="sfx-dict-save-btn">保存字典</button>
+                <button id="sfx-dict-next" type="button" class="sfx-dict-next-btn">下一步 →</button>
+              </div>
+            </div>
+
+            <p id="sfx-dict-message" class="message" role="status" aria-live="polite"></p>
+          </section>
+
+          <!-- Step 2: Import & Match -->
+          <section id="sfx-match-panel" class="preview-panel hidden">
+            <div class="panel-topbar">
+              <div class="topbar-left">
+                <button id="sfx-match-back" type="button" class="back-btn">← 返回</button>
+                <div class="topbar-title">
+                  <h2>导入 & 匹配</h2>
+                  <p id="sfx-match-summary" class="topbar-summary"></p>
+                </div>
+              </div>
+              <div class="topbar-right">
+                <button id="sfx-match-rematch" type="button" class="sfx-match-rematch-btn" disabled>重新匹配</button>
+                <div class="tool-group">
+                  <button id="sfx-match-next-unmatched" type="button" class="sfx-match-nav-btn" disabled>下一个未匹配</button>
+                  <p id="sfx-match-nav-status" class="tool-status hidden"></p>
+                </div>
+                <span class="topbar-divider"></span>
+                <button id="sfx-match-export" type="button" class="sfx-match-export-btn" disabled>导出 Excel</button>
+              </div>
+            </div>
+
+            <!-- Import area (shown when no data loaded) -->
+            <div id="sfx-match-import-area" class="sfx-match-import-area">
+              <div class="section-head">
+                <div>
+                  <p class="section-tag">Step 2</p>
+                  <h2>导入数据</h2>
+                </div>
+                <p class="section-hint">选择Excel文件或直接粘贴数据。</p>
+              </div>
+
+              <label class="file-picker" for="sfx-match-file-input">
+                <span class="file-label">选择 Excel 文件</span>
+                <input id="sfx-match-file-input" type="file" accept=".xlsx,.xls" />
+              </label>
+
+              <div class="sfx-match-paste-hint">
+                <p class="hint">也可以直接从 Excel 复制后 <kbd>Ctrl+V</kbd> 粘贴到此区域</p>
+              </div>
+
+              <p id="sfx-match-import-message" class="message" role="status" aria-live="polite"></p>
+            </div>
+
+            <!-- Column selection (shown after import) -->
+            <div id="sfx-match-col-select" class="sfx-match-col-select hidden">
+              <div class="sfx-match-col-row">
+                <label class="sfx-match-col-label">
+                  <span>文件名列：</span>
+                  <select id="sfx-match-name-col" class="settings-select"></select>
+                </label>
+                <label class="sfx-match-col-label">
+                  <span>音效ID列（可选）：</span>
+                  <select id="sfx-match-id-col" class="settings-select">
+                    <option value="">-- 不选择 --</option>
+                  </select>
+                </label>
+                <button id="sfx-match-confirm-cols" type="button" class="sfx-match-confirm-btn">确认并匹配</button>
+              </div>
+            </div>
+
+            <!-- Match result table -->
+            <div id="sfx-match-table-area" class="sfx-match-table-area hidden">
+              <div class="preview-table-shell">
+                <table class="preview-table sfx-match-table">
+                  <thead>
+                    <tr>
+                      <th class="sfx-match-col-idx">#</th>
+                      <th class="sfx-match-col-id-th">音效ID</th>
+                      <th class="sfx-match-col-name-th">文件名称</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sfx-match-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ===== Tab 3: Toolbox ===== -->
+        <div id="toolbox-app" class="workspace tab-content hidden" data-tab="toolbox">
+          <!-- Toolbox Grid (home) -->
+          <section id="toolbox-grid-panel" class="control-card">
+            <header class="hero">
+              <div class="hero-copy">
+                <p class="eyebrow">🧰 Toolbox</p>
+                <h1>常用小工具箱</h1>
+                <p class="intro">快捷实用的文本处理小工具集合，点击图标进入对应工具。</p>
+              </div>
+            </header>
+
+            <div id="toolbox-grid" class="toolbox-grid"></div>
+          </section>
+
+          <!-- Tool: Text Join -->
+          <section id="tool-text-join" class="control-card hidden">
+            <div class="tool-header">
+              <button id="tool-text-join-back" type="button" class="back-btn">← 返回工具箱</button>
+              <h2>🔗 分段文本连接</h2>
+            </div>
+
+            <div class="tool-body">
+              <div class="tool-field">
+                <label class="tool-field-label">输入文本：</label>
+                <textarea id="text-join-input" class="tool-textarea" placeholder="在此输入或粘贴多行文本..." rows="8"></textarea>
+              </div>
+
+              <div class="tool-action-row">
+                <label class="tool-option-inline">
+                  <input id="text-join-default-check" type="checkbox" checked />
+                  <span>默认</span>
+                </label>
+                <input id="text-join-separator" type="text" class="tool-separator-input" value="," disabled />
+                <button id="text-join-btn" type="button" class="tool-process-btn">文本处理</button>
+              </div>
+
+              <div class="tool-field">
+                <div class="tool-field-header">
+                  <label class="tool-field-label">处理结果：</label>
+                  <button id="text-join-copy" type="button" class="tool-copy-btn" disabled>复制</button>
+                </div>
+                <textarea id="text-join-output" class="tool-textarea tool-textarea-readonly" rows="6" readonly placeholder="处理结果将显示在这里..."></textarea>
+              </div>
+
+              <p id="text-join-message" class="message" role="status" aria-live="polite"></p>
+            </div>
+          </section>
+        </div>
+      </section>
+      <footer class="app-footer">
+        <button id="version-btn" type="button" class="app-version-btn">v...</button>
+      </footer>
+
+      <!-- Version changelog overlay -->
+      <div id="changelog-overlay" class="settings-overlay hidden">
+        <div class="settings-modal changelog-modal">
+          <div class="settings-header">
+            <h2>版本记录</h2>
+            <button id="changelog-close" type="button" class="settings-close-btn" aria-label="关闭">✕</button>
+          </div>
+          <div class="changelog-body" id="changelog-body">
+            <!-- Dynamically populated from /api/version -->
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('static', filename='sfx-match.js') }}"></script>
+    <script src="{{ url_for('static', filename='toolbox.js') }}"></script>
+  </body>
+</html>
